@@ -11,6 +11,50 @@ fis_df<-Forestry_Inspections
 ftp_df<-Forestry_Tree_Points
 fwo_df<-Forestry_Work_Orders
 
+
+# Community Dataset Wrangling
+
+Community_District_household <- read_csv("C:/Users/Naksh/Downloads/NYC Demographic data/Community District household.csv")
+Community_District_Area <- read_csv("C:/Users/Naksh/Downloads/NYC Demographic data/Community District Area.csv")
+
+areaCD_df<- Community_District_Area
+
+areaCD_df 
+
+community_demo_df<-Community_District_household
+
+community_demo_df<-community_demo_df %>% rename(CommunityBoard=`COMMUNITY DISTRICTS`)
+
+areaCD_df<-areaCD_df %>% rename(CommunityBoard=BoroCD)
+
+community_demo_df<-inner_join(community_demo_df,areaCD_df)
+
+community_demo_df<-community_demo_df %>% select(`Borough cd`,CommunityBoard,Growth,Household,`Population 18 Years and over`,White,`Black/ African American`,Asian,`Native Hawaiian and Other Pacific Islander`,`Hispanic Origin (or other race)`,`Female 18 Over`,`Male 18 over`,Shape_Area,Shape_Leng)
+
+community_demo_df<-community_demo_df %>% rename(BoroughCode=`Borough cd`)
+
+ComplaintbyCB_df<-data.frame(fsr_df$CommunityBoard,fsr_df$ComplaintType)
+
+ComplaintbyCB_df<-ComplaintbyCB_df %>% group_by(fsr_df.CommunityBoard,fsr_df.ComplaintType) %>% summarise(cnt=n())
+
+ComplaintbyCB_df<-spread(ComplaintbyCB_df,fsr_df.ComplaintType,cnt)
+
+ComplaintbyCB_df<-ComplaintbyCB_df%>% rename(CommunityBoard=fsr_df.CommunityBoard)
+
+community_demo_Complaintytype_df<-inner_join(community_demo_df,ComplaintbyCB_df,by=c("CommunityBoard","CommunityBoard"))
+
+community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% mutate(totalRequest=`Damaged Tree`+`Dead Tree`+`Dead/Dying Tree`+`Illegal Tree Damage`+`Overgrown Tree/Branches`+`Root/Sewer/Sidewalk Condition`+ `New Tree Request`)
+
+Comm_ResponseTime_df<-fsr_df%>% group_by(CommunityBoard) %>% summarize(mean(ResponseTime,na.rm=TRUE),median(ResponseTime,na.rm=TRUE))
+
+community_demo_Complaintytype_df<-inner_join(community_demo_Complaintytype_df,Comm_ResponseTime_df)
+
+
+
+
+
+
+
 #Convert Date from Char to Date format
 
 fsr_df<-fsr_df %>% mutate(myCreatedDate=as.Date(CreatedDate,"%m/%d/%Y"))
@@ -27,7 +71,7 @@ levels(fsr_df$UpdatedMonth) <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"
 fsr_df<-fsr_df %>% mutate(ResponseTime=myUpdatedDate-myCreatedDate) 
 fsr_df$ResponseTime<- as.numeric(fsr_df$ResponseTime)
 
-fsr_df<-fsr_df %>% select(ComplaintNumber,SRCategory,SRType,SRPriority,SRSource,SRResolution,BoroughCode,CommunityBoard,Postcode,StateAssembly,StateSenate,GlobalID,ClosedDate,UpdatedDate,ComplaintType,Latitude,Longitude,myCreatedDate,myUpdatedDate,Cyear,CMonth,Uyear,UMonth,UDate,CreatedMonth,UpdatedDate,ResponseTime)
+fsr_df<-fsr_df %>% select(ComplaintNumber,SRCategory,SRType,SRPriority,SRSource,SRResolution,BoroughCode,CommunityBoard,TaxClass,GlobalID,ClosedDate,UpdatedDate,ComplaintType,Latitude,Longitude,myCreatedDate,myUpdatedDate,Cyear,CMonth,Uyear,UMonth,UDate,CreatedMonth,UpdatedDate,ResponseTime)
 
 # full Join with inspection and Tree point
 
@@ -88,10 +132,9 @@ t_df<-full_join(fsr_df,fistpwo_df,by=c("ServiceRequestGlobalID","ServiceRequestG
 
 fsrfistpwo_df<-t_df%>% filter(!is.na(ComplaintNumber))
 
-fsrfistpwodemo_df %>% filter(!is.na(ComplaintType))%>%ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar()
+fsrfistpwo_df %>% filter(!is.na(InspectionStatus))  # 63108
 
-fsrfistpwodemo_df %>% filter(!is.na(ComplaintType))%>%ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar(position = "fill") + ylab("Percent")
-
+fsrfistpwo_df %>% filter(!is.na(WOType))  # 40300 
 
 
 # Frequent Cases
@@ -146,28 +189,11 @@ FreqSpecies_df %>% filter(!is.na(GenusSpecies) & SpeciesCnt>1000) %>% group_by(G
 
 fsrfistpwo_df<-full_join(fsrfistpwo_df,t_df)
 
-fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus))
-
-
-
-fsrfistpwodemo_df %>% filter(!is.na(ComplaintType))%>%ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar()
-
-fsrfistpwodemo_df %>% filter(!is.na(ComplaintType))%>%ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar(position = "fill")+ylab("Proportion")
-
 
 # Explore relationship between TP cnt and location cnt
 
 fsrfistpwo_df %>% ggplot(aes(x=SRlocCnt,y=CntTPT,col=BoroughCode))+geom_point()  # Broklyn has more presence
 
-# Contingency Table Between BoroughCode and Genus Species
-
-BoroSpecies_df<-as.data.frame.matrix(table(fsrfistpwo_df$GenusSpecies,fsrfistpwo_df$BoroughCode))
-
-prop.table(table(fsrfistpwo_df$GenusSpecies,fsrfistpwo_df$BoroughCode),1)
-
-prop.table(table(fsrfistpwo_df$GenusSpecies,fsrfistpwo_df$ComplaintType),2)
-
-fsrfistpwodemo_df %>% filter(SpeciesCnt>1000) %>% ggplot(aes(x=ComplaintType,fill=GenusSpecies))+geom_bar()
 
 # identify location of Species 
 
@@ -184,28 +210,21 @@ fsrfistpwo_df %>% filter(SpeciesCnt>7500) %>% ggplot(aes(x=CMonth,fill=GenusSpec
 fsrfistpwo_df %>% filter(SpeciesCnt>7500) %>% ggplot(aes(x=CMonth,fill=GenusSpecies))+geom_bar(position = "fill")
 
 # Explore BoroughCode for these species
-fsrfistpwo_df %>% filter(SpeciesCnt>7500) %>% ggplot(aes(x=BoroughCode,fill=GenusSpecies))+geom_bar() 
-
-# Queen has most, followed by Broklyn
-
-# Queen  has most cases and Broklyn has second most,explore CommunityBoard
-
-fsrfistpwo_df %>% filter(SpeciesCnt>7500 & ComplaintType!="New Tree Request" & BoroughCode=="Queens") %>% ggplot(aes(x=factor(CommunityBoard.x),fill=GenusSpecies))+geom_bar()
-fsrfistpwo_df %>% filter(SpeciesCnt>7500 & ComplaintType!="New Tree Request" & BoroughCode=="Brooklyn") %>% ggplot(aes(x=factor(CommunityBoard.x),fill=GenusSpecies))+geom_bar()
+fsrfistpwo_df %>% filter(SpeciesCnt>1500) %>% ggplot(aes(x=GenusSpecies,fill=BoroughCode))+geom_bar(position = "fill") 
 
 
-# Queen Community Board 413,411,415 Norway Maple Contributing most , Brooklyn 318, 315, 311, 310 , 312 has most cases
-
-fsrfistpwo_df %>% filter(SpeciesCnt>7500 & ComplaintType!="New Tree Request" & BoroughCode=="Queens") %>% ggplot(aes(x=factor(CommunityBoard.x),fill=GenusSpecies))+geom_bar()
 
 
 # Explore Complaint Type on these tress
 
-fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" ) %>% ggplot(aes(x=ComplaintType,fill=GenusSpecies))+geom_bar()  
 
-fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" ) %>% ggplot(aes(x=ComplaintType,fill=GenusSpecies))+geom_bar(position = "fill")  
+fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & SpeciesCnt>1500 & GenusSpecies!="Unknown - Unknown") %>% ggplot(aes(x=GenusSpecies,fill=ComplaintType))+geom_bar()
 
-# NorWay Maple has most cntribution in Damaged , Dead or Dying Tree and very less contribution in overgrown or Root or Sear Problem
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" ) %>% ggplot(aes(x=GenusSpecies,fill=ComplaintType))+geom_bar()  
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" ) %>% ggplot(aes(x=GenusSpecies,fill=ComplaintType))+geom_bar(position = "fill") + ylab("Proportion") 
+
+# NorWay Maple has most contribution in Damaged , Dead or Dying Tree and very less contribution in overgrown or Root or Sear Problem
 
 # Thornless Honeylocust has more contribution in Illegal Tree Damage, Overgrown and SW complaints.
 
@@ -215,6 +234,22 @@ fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" ) %
 
 # Damaged Tree has most cases more than 9000  
 
+# Explore Work order category for these trees
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType) & WOType!="Misc. Work" ) %>% ggplot(aes(x=GenusSpecies,fill=WOType))+geom_bar()
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType) & WOType!="Misc. Work" ) %>% ggplot(aes(x=GenusSpecies,fill=WOType))+geom_bar(position = "fill") + ylab("Proportion")
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType) & WOType!="Misc. Work" & !is.na(WOEquipment) & WOEquipment!="Chipper") %>% ggplot(aes(x=WOEquipment,fill=GenusSpecies))+geom_bar()  
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType) & WOType!="Misc. Work" & !is.na(WOEquipment) & WOEquipment!="Chipper") %>% ggplot(aes(x=GenusSpecies,fill=WOEntity))+geom_bar()  
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType)) %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=GenusSpecies))+geom_point()  
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType)) %>% ggplot(aes(x=BoroughCode,fill=GenusSpecies))+geom_bar()
+
+fsrfistpwo_df %>% filter(SpeciesCnt>1500 & ComplaintType!="New Tree Request" & GenusSpecies!="Unknown - Unknown" & !is.na(WOType) & GenusSpecies=="") %>% ggplot(aes(x=BoroughCode,fill=GenusSpecies))+geom_bar()
+
+
+
 # Explore Diameter of these trees:
 
 fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<250) %>% ggplot(aes(x=DBH))+geom_histogram(binwidth = 1)
@@ -223,7 +258,7 @@ fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<50) %>% ggplot(
 
 # Explore Proportion of Species
 
-fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<50 & SpeciesCnt>1500) %>% ggplot(aes(x=DBH,fill=GenusSpecies))+geom_histogram(binwidth = 1)
+fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<50 & SpeciesCnt>1500 & GenusSpecies !="Unknown - Unknown") %>% ggplot(aes(x=DBH,fill=GenusSpecies))+geom_histogram(aes(y = ..density..),binwidth = 1)
 
 # Most of request for Norway Maple is for DBH<22 While London plantree most cases when DBH are more than 20
 
@@ -235,43 +270,27 @@ fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<50 & SpeciesCnt
 
 fsrfistpwo_df %>% filter(ComplaintType!="New Tree Request" & DBH<50 & SpeciesCnt>1500 & GenusSpecies!="Unknown - Unknown") %>% ggplot(aes(x=DBH,col=GenusSpecies))+geom_density()
 
-# There is Normal Curve for each species at specific DBH
+ftp_df %>% filter(DBH<50 & GenusSpecies!="Unknown - Unknown" ) %>% ggplot(aes(x=DBH,col=GenusSpecies))+geom_density()
+
+t_df<-ftp_df %>% group_by(GenusSpecies) %>% summarise(Tcnt=n()) %>% arrange(desc(Tcnt)) 
+
+ftp_df<-full_join(ftp_df,t_df)
+
+ftp_df %>% filter(DBH<50 & GenusSpecies!="Unknown - Unknown" & Tcnt> 22000 ) %>% ggplot(aes(x=DBH,col=GenusSpecies))+geom_density()
 
 
-
-
-
-
-
+# There is Normal Curve for each species at specific DBH in these complaints
 
 
 # Join Community Demo with SR 
 
 
 
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% rename(Population=`Population 2010`)
+fsrfistpwo_df<-fsrfistpwo_df %>% rename(CommunityBoard=CommunityBoard.x)
 
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% rename(Household=`HU 2010`)
-
-community_demo_Complaintytype_df<- community_demo_Complaintytype_df %>% rename(Hgrowth=`10 Yr Growth`)
-
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% rename(AvgResponseTime=`mean(ResponseTime, na.rm = TRUE)`)
-
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% rename(MedResponseTime=`median(ResponseTime, na.rm = TRUE)`)
-
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% select(CommunityBoard,Population,Household,Hgrowth,Shape_Area,Shape_Leng,`Damaged Tree`,`Dead Tree`,`Dead/Dying Tree`,`Illegal Tree Damage`,`Overgrown Tree/Branches`,`New Tree Request`,`Root/Sewer/Sidewalk Condition`,totalRequest,AvgResponseTime,MedResponseTime)
 
 fsrfistpwodemo_df<-full_join(fsrfistpwo_df,community_demo_Complaintytype_df,by=c("CommunityBoard","CommunityBoard"))
 
-
-# Explore HouseHold with Shape Area
-
-fsrfistpwodemo_df %>% ggplot(aes(x=Shape_Area,y=Hgrowth,col=BoroughCode))+geom_point()
-
-# Queen has more area but less growth
-# Bronx has more growth with Less Area
-# Manhattan has less growth and less area
-# Broklyn has negative Correlation between Area and Growth
 
 
 # Calculate Time for Inspection and time for WO
@@ -282,9 +301,6 @@ fsrfistpwodemo_df<-fsrfistpwodemo_df %>% mutate(myInCreatedDate=as.Date(InCreate
 fsrfistpwodemo_df<- fsrfistpwodemo_df %>% mutate(myInUpdatedDate=as.Date(InUpdatedDate,"%m/%d/%Y"))
 fsrfistpwodemo_df<- fsrfistpwodemo_df %>% mutate(tempcreatedate=myInCreatedDate)%>% separate(tempcreatedate,c("InCyear","InCMonth","InCDate"),sep="-")
 fsrfistpwodemo_df<- fsrfistpwodemo_df %>% mutate(tempupdatedate=myInUpdatedDate)%>% separate(tempupdatedate,c("InUyear","InUMonth","InUDate"),sep="-")
-
-
-
 fsrfistpwodemo_df<-fsrfistpwodemo_df %>% mutate(myWoCreatedDate=as.Date(WOCreatedDate,"%m/%d/%Y"))
 fsrfistpwodemo_df<- fsrfistpwodemo_df %>% mutate(myWoUpdatedDate=as.Date(WOUpdatedDate,"%m/%d/%Y"))
 fsrfistpwodemo_df<- fsrfistpwodemo_df %>% mutate(tempcreatedate=myWoCreatedDate)%>% separate(tempcreatedate,c("WoCyear","WoCMonth","WoCDate"),sep="-")
@@ -296,19 +312,67 @@ fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(InDelayTime=myInCreatedDate-my
 
 fsrfistpwodemo_df$InDelayTime<- as.numeric(fsrfistpwodemo_df$InDelayTime)
 
+# Analysis of inspection delay
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200) %>% ggplot(aes(x=InDelayTime,fill=ComplaintType))+geom_bar()
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200) %>% ggplot(aes(x=InDelayTime,fill=SRType))+geom_bar()
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200) %>% ggplot(aes(x=InDelayTime,fill=BoroughCode))+geom_bar()
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200 & ComplaintType!="New Tree Request") %>% ggplot(aes(x=InDelayTime,fill=CreatedMonth))+geom_bar()
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200 & ComplaintType!="New Tree Request") %>% ggplot(aes(x=InDelayTime,fill=SRSource))+geom_bar()
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & InDelayTime<200 & ComplaintType!="New Tree Request") %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot() + facet_wrap(~ComplaintType)
+
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & ResponseTime>0 & InDelayTime>0 &ComplaintType!="New Tree Request" & !is.na(WOType)) %>% ggplot(aes(x=ResponseTime,y=InDelayTime,col=BoroughCode))+geom_point()
+
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & ResponseTime>0 & InDelayTime>0 & ComplaintType!="New Tree Request" & !is.na(WOType)) %>% ggplot(aes(x=log(InDelayTime),col=CreatedMonth))+geom_density()
+
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Damaged Tree" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Dead Tree" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Dead/Dying Tree" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Illegal Tree Damage" ) %>% ggplot(aes(x=BoroughCode,y=InDelayTime))+geom_boxplot()+facet_wrap(~SRType)
+
+
+
 # Calculate and Add Inspection time
 
 fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(InspTime=myInUpdatedDate-myInCreatedDate)
 
 fsrfistpwodemo_df$InspTime<- as.numeric(fsrfistpwodemo_df$InspTime)
 
+#fsrfistpwodemo_df %>% ggplot(aes(x=InspTime,y=ResponseTime))+geom_point()
+
 fsrfistpwodemo_df %>% ggplot(aes(x=InspTime,fill=ComplaintType))+geom_histogram()
 
 fsrfistpwodemo_df %>% ggplot(aes(x=InspTime,fill=InspectionType))+geom_histogram()
 
-fsrfistpwodemo_df %>% filter(!is.na(WOType))%>%ggplot(aes(x=InspTime,fill=WOType))+geom_histogram()
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InspTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~WOType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InspTime>0 & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InspTime>0  & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InspTime>0  & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=BoroughCode,y=InspTime))+geom_boxplot()+facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=log(InspTime),col=SRType))+geom_density()
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=log(InspTime),col=InspectionType))+geom_density()
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=log(InspTime),col=InspectionTPCondition))+geom_density()
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & ComplaintType=="Damaged Tree" & !is.na(InspectionTPStructure))%>%ggplot(aes(x=log(InspTime),col=InspectionTPStructure))+geom_density() +facet_wrap(~InspectionType)
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0  & !is.na(WOType) & !is.na(InspectionTPStructure) & !is.na(DBH))%>%ggplot(aes(x=log(InspTime),col=factor(DBH)))+geom_density()
 
-fsrfistpwodemo_df %>% ggplot(aes(x=InspTime,fill=BoroughCode))+geom_histogram()
+# Not much relationship with DBH
+
+fsrfistpwodemo_df %>% filter(InspectionStatus=="Closed" & InspTime>0 & DBH<250  & !is.na(WOType) & !is.na(InspectionTPStructure) & !is.na(DBH))%>%ggplot(aes(x=DBH,y=log(InspTime),col=SRType))+geom_point()
+
 
 #Add TimeDiff between service request creation and inspection Closure
 
@@ -322,6 +386,21 @@ fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(WoDelayTime=myWoCreatedDate-my
 
 fsrfistpwodemo_df$WoDelayTime <- as.numeric(fsrfistpwodemo_df$WoDelayTime)
 
+fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(InWoDelayTime=myWoCreatedDate-myInCreatedDate)
+
+fsrfistpwodemo_df$InWoDelayTime <- as.numeric(fsrfistpwodemo_df$InWoDelayTime)
+
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" )%>%ggplot(aes(x=BoroughCode,y=InWoDelayTime))+geom_boxplot()+facet_wrap(~WOType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Damaged Tree" )%>%ggplot(aes(x=BoroughCode,y=InWoDelayTime))+geom_boxplot()+facet_wrap(~WOType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" )%>%ggplot(aes(x=BoroughCode,y=InWoDelayTime))+geom_boxplot()+facet_wrap(~WOType)
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & InDelayTime>0 & !is.na(WOType) & ComplaintType=="Illegal Tree Damage" )%>%ggplot(aes(x=BoroughCode,y=InWoDelayTime))+geom_boxplot() + facet_wrap(~WOType)
+
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & WoDelayTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" )%>%ggplot(aes(x=SRType,y=InWoDelayTime))+geom_boxplot()
+
+fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus)  & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" )%>%ggplot(aes(x=WOType,y=InWoDelayTime))+geom_boxplot()
+
+
+
 
 # Calculate Total WO Completion time
 
@@ -329,11 +408,33 @@ fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(WoCloseTime=myWoUpdatedDate-my
 
 fsrfistpwodemo_df$WoCloseTime <- as.numeric(fsrfistpwodemo_df$WoCloseTime)
 
-fsrfistpwodemo_df %>% ggplot(aes(x=WoCloseTime,fill=ComplaintType))+geom_histogram()
+fsrfistpwodemo_df %>% filter(!is.na(ComplaintType)) %>%ggplot(aes(x=WoCloseTime,fill=ComplaintType))+geom_histogram(position = "fill")
 
-fsrfistpwodemo_df %>% ggplot(aes(x=WoCloseTime,fill=InspectionType))+geom_histogram()
+fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=WoCloseTime,fill=SRType))+geom_histogram(position = "fill")
 
-fsrfistpwodemo_df %>% ggplot(aes(x=WoCloseTime,fill=WOType))+geom_histogram()
+# Relationship between WOType and SR Type
+
+fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=SRType,fill=WOType))+geom_bar()
+
+fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=SRType,fill=WOType))+geom_bar() + facet_wrap(~BoroughCode)
+
+fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=SRType,fill=WOType))+geom_bar(position = "fill") + facet_wrap(~BoroughCode)
+
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & !is.na(WOType) ) %>% ggplot(aes(x=log(WoCloseTime),col=ComplaintType))+ geom_density()
+
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Damaged Tree" ) %>% ggplot(aes(x=WoCloseTime,fill=WOType))+ geom_histogram(position = "fill")
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & !is.na(WOType) & ComplaintType== "Overgrown Tree/Branches" ) %>% ggplot(aes(x=WoCloseTime,fill=WOType))+ geom_histogram(position = "fill")
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & WoCloseTime<500 & !is.na(WOType) & ComplaintType== "Root/Sewer/Sidewalk Condition"  ) %>% ggplot(aes(y=WoCloseTime,x=WOType))+ geom_boxplot() + facet_wrap(~BoroughCode)
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & WoCloseTime<500 & !is.na(WOType) & ComplaintType== "Damaged Tree"  ) %>% ggplot(aes(x=WoCloseTime,fill=WOType))+ geom_histogram() + facet_wrap(~BoroughCode)
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & WoCloseTime<500 & !is.na(WOType) & ComplaintType== "Overgrown Tree/Branches"  ) %>% ggplot(aes(x=WoCloseTime,fill=WOType))+ geom_histogram() + facet_wrap(~BoroughCode)
+
+fsrfistpwodemo_df %>% filter(WoCloseTime>0 & WoCloseTime<500 & !is.na(WOType) & SRType== "Trees and Sidewalks"  ) %>% ggplot(aes(y=WoCloseTime,x=BoroughCode))+ geom_boxplot() + facet_wrap(~WOType)
 
 fsrfistpwodemo_df %>% ggplot(aes(x=WoCloseTime,fill=BoroughCode))+geom_histogram()
 
@@ -350,8 +451,17 @@ fsrfistpwodemo_df <- fsrfistpwodemo_df %>% mutate(SRWocloseTime=myWoUpdatedDate-
 
 fsrfistpwodemo_df$SRWocloseTime <- as.numeric(fsrfistpwodemo_df$SRWocloseTime)
 
-# Explore Response time, Inspection Delay time, Inspection close time, Wo Delay time and Overall Closure time
+#SRClosure TIme and Created Month
 
+fsrfistpwodemo_df %>% filter(SRWocloseTime>0 & !is.na(ComplaintType)) %>% ggplot(aes(x=log(SRWocloseTime),col=BoroughCode))+geom_density()+ facet_wrap(~ComplaintType)
+
+fsrfistpwodemo_df %>% filter(SRWocloseTime>200 & SRWocloseTime<600 &  !is.na(ComplaintType) ) %>% ggplot(aes(x=SRWocloseTime,fill=CreatedMonth))+geom_histogram(aes(y = ..density..), binwidth = 10,position = "fill")
+
+fsrfistpwodemo_df %>% filter(SRWocloseTime>0 &  !is.na(SRType) ) %>% ggplot(aes(x=SRWocloseTime,fill=WOType))+geom_histogram(aes(y = ..density..), binwidth = 10,position = "fill")
+
+
+
+# Explore Response time, Inspection Delay time, Inspection close time, Wo Delay time and Overall Closure time
 
 fsrfistpwodemo_df%>% filter(ResponseTime>0)%>%ggplot(aes(x=ResponseTime))+geom_density()
 
@@ -376,19 +486,20 @@ fsrfistpwodemo_df%>% filter(InCloseTime>0)%>%ggplot(aes(x=InCloseTime,y=Response
 # Is Repeating call affecting Time?
 
 
-fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime))+geom_density()
 
-fsrfistpwodemo_df %>% filter(CntTPT>2 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime))+geom_density()
 
-fsrfistpwodemo_df %>% filter(SpeciesCnt>2 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime))+geom_density()
+fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRlocCnt<14 &SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=factor(SRlocCnt)))+geom_density()
 
-# species count is not affecting Density but Location and Tp cnt is affecting. It means Repeated calls on Same location or Tree point Increasing time for closure
+fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRlocCnt<14 &SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=factor(SRlocCnt)))+geom_density()
 
-#  Explore time of closure for Different location cnt
+fsrfistpwodemo_df %>% filter(SRlocCnt>1  & SRWocloseTime>0 ) %>% ggplot(aes(x=ComplaintType,fill=SRType))+geom_bar()
 
-fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=factor(SRlocCnt)))+geom_density()
+fsrfistpwodemo_df %>% filter(SRlocCnt>1  & SRWocloseTime>0 ) %>% ggplot(aes(x=ComplaintType,fill=BoroughCode))+geom_bar()
 
-# location count more than 18 has more delays.
+fsrfistpwodemo_df %>% filter(SRlocCnt>1  & SRWocloseTime>0 ) %>% ggplot(aes(x=ComplaintType,fill=BoroughCode))+geom_bar()
+
+fsrfistpwodemo_df %>% filter(SRlocCnt>1  & SRWocloseTime>0 ) %>% ggplot(aes(x=ComplaintType,fill=WOType))+geom_bar()
+
 
 fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=BoroughCode))+geom_density()
 
@@ -396,7 +507,7 @@ fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWo
 
 # Multiple request on Same location and complaint type Root/Sewar/Sidewalk has more closure time
 
-fsrfistpwodemo_df %>% filter(SRlocCnt>1 & InDelayTime>0) %>% ggplot(aes(x=SRWocloseTime,col=ComplaintType))+geom_density()
+fsrfistpwodemo_df %>% filter(SRlocCnt>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=ComplaintType))+geom_density()
 
 # Explore Frequent SR on same Tree point affecting Closure
 
@@ -404,7 +515,7 @@ fsrfistpwodemo_df %>% filter(CntTPT>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocl
 
 fsrfistpwodemo_df %>% filter(CntTPT>1 & SRWocloseTime>0) %>% ggplot(aes(x=SRWocloseTime,col=SRCategory))+geom_density()
 
-# Multiple request on Same TreePoint and complaint type Root/Sewar/Sidewalk, Dead Tree and OverGrown Tree Brnaches has more closure time
+# Multiple request on Same TreePoint and complaint type Root/Sewar/Sidewalk, Dead Tree and OverGrown Tree Branches has more closure time
 
 # Explore WO Type on SRWoclosetime
 
@@ -532,37 +643,6 @@ fsrfistpwodemo_df%>% filter(CntTPT>2 & BoroughCode=="Bronx") %>% ggplot(aes(x=Lo
 # 3 times service request has been raised for repeated location in Bronx Most
 
 
-# % of request to total population for each community Board
-
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% mutate(ReqperHH=totalRequest/Household)
-
-community_demo_Complaintytype_df<-community_demo_Complaintytype_df %>% mutate(ReqperPP=totalRequest/Population)
-
-community_demo_Complaintytype_df %>% select(CommunityBoard,ReqperHH,ReqperPP,MedResponseTime,AvgResponseTime) %>% ggplot(aes(x=ReqperHH,y=ReqperPP,col=factor(MedResponseTime)))+geom_point()
-
-# There is positive correlation between Req per HH and Req per person. Higher Request rate has high median response time. 
-
-#  Explore Median and Avg response time for Service request which are inspected and completed by WO 
-
-TimeSummary_df<-fsrfistpwodemo_df %>% filter(!is.na(InspectionDate) & !is.na(WOType)) %>% group_by(CommunityBoard,ComplaintType,WOType,GenusSpecies,DBH) %>% summarize(mean(ResponseTime,na.rm=TRUE),median(ResponseTime,na.rm=TRUE),mean(InDelayTime,na.rm=TRUE),median(InDelayTime,na.rm=TRUE),mean(SRWocloseTime,na.rm=TRUE),median(SRWocloseTime,na.rm=TRUE))
-
-TimeSummary_df<-TimeSummary_df %>% rename(MeanSRWOCLOSE=`mean(SRWocloseTime, na.rm = TRUE)`)
-
-TimeSummary_df %>% filter(DBH<250)%>%ggplot(aes(x=DBH,y=MeanSRWOCLOSE,col=factor(CommunityBoard)))+geom_point()
-
-TimeSummary_df %>% filter(DBH<25)%>%ggplot(aes(x=DBH,y=MeanSRWOCLOSE,col=factor(WOType)))+geom_jitter(alpha=0.5)
-
-TimeSummary_df %>% filter(DBH<25)%>%ggplot(aes(x=DBH,y=MeanSRWOCLOSE,col=factor(WOType)))+geom_jitter(alpha=0.5)
-
-TimeSummary_df %>% filter(DBH<25 & ComplaintType!="New Tree Request")%>%ggplot(aes(x=DBH,y=MeanSRWOCLOSE,col=factor(ComplaintType)))+geom_jitter(alpha=0.5)
-
-# Complaint Type Root Sewar at high Diameter have high Avg closure time. While Dead tree at lower diameter has high avg close time.
-
-TimeSummary_df %>% filter(DBH<25 & ComplaintType!="New Tree Request")%>%ggplot(aes(x=DBH,y=MeanSRWOCLOSE,col=factor(WOType)))+geom_jitter(alpha=0.5)
-
-# WoType Tree Removal are more concentrated at low diameter. Prune is concentrated at high diamter and higher closure time.
-
-TimeSummary_df %>% filter(DBH<25 & ComplaintType!="New Tree Request")%>%ggplot(aes(x=DBH,y=`median(SRWocloseTime, na.rm = TRUE)`,col=factor(WOType)))+geom_jitter(alpha=0.5)
 
 
 # Explore Workorder Completion time
@@ -576,18 +656,15 @@ fsrfistpwodemo_df %>% filter(!is.na(WOType)) %>% ggplot(aes(x=WoCMonth,fill=WOTy
 # July, Aug and Sep are most Work order created
 
 
- 
 fsrfistpwodemo_df %>% filter(!is.na(WOType) & ResponseTime>0 & SRWocloseTime>0 & WoDelayTime>0 & WoCloseTime>0 & Cyear=="2015" & WoUyear =="2016") %>% ggplot(aes(x=WoUMonth,fill=CMonth))+geom_bar()
 
 fsrfistpwodemo_df %>% filter(!is.na(WOType) & ResponseTime>0 & SRWocloseTime>0 & WoDelayTime>0 & WoCloseTime>0) %>% ggplot(aes(x=CMonth,fill=WoUMonth))+geom_bar()
-
 
 # distribution of various time
 
 fsrfistpwodemo_df %>% filter(!is.na(WOType) & ResponseTime>0 & SRWocloseTime>0 ) %>% ggplot(aes(x=factor(SRCategory),y= WoCloseTime))+geom_boxplot()+ facet_wrap(~BoroughCode)
 
 fsrfistpwodemo_df %>% filter(!is.na(WOType) & ResponseTime>0 & SRWocloseTime>0 ) %>% ggplot(aes(x=factor(SRResolution),y= WoCloseTime))+geom_boxplot()+ facet_wrap(~BoroughCode)
-
 
 fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & ResponseTime>0 & SRWocloseTime>0 ) %>% ggplot(aes(x=factor(ComplaintType),y= InspTime))+geom_boxplot()+ facet_wrap(~BoroughCode)
 
@@ -599,67 +676,22 @@ fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & ResponseTime>0 & SRWoclo
 
 fsrfistpwodemo_df %>% filter(!is.na(InspectionStatus) & ResponseTime>0 & SRWocloseTime>0 & !is.na(WOCategory) & SpeciesCnt>2000) %>% ggplot(aes(x=WOCategory,y= WoCloseTime))+geom_boxplot()+ facet_wrap(~GenusSpecies)
 
-# Doc Graphs
 
-fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType)) %>% ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar()
+# Analysis on Community
 
-fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType)) %>% ggplot(aes(x=BoroughCode,fill=ComplaintType))+geom_bar(position = "fill")+ylab("Proportion")
+community_demo_Complaintytype_df %>% ggplot(aes(x=`Female 18 Over`,y= totalRequest)) +geom_point()
 
-fsrfistpwodemo_df%>% filter(!is.na(InspectionStatus) & !is.na(SRType)) %>% ggplot(aes(x=BoroughCode,fill=SRType))+geom_bar()
+community_demo_Complaintytype_df %>% ggplot(aes(x=`Male 18 over`,y= totalRequest)) +geom_point()
 
-# Service Req Creation Time
+community_demo_Complaintytype_df %>% ggplot(aes(x=White,y= totalRequest)) +geom_point()
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType)) %>% ggplot(aes(x=CreatedMonth,fill=ComplaintType))+geom_histogram(stat="count")
+community_demo_Complaintytype_df %>% ggplot(aes(x=Asian,y= totalRequest)) +geom_point()
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) ) %>% ggplot(aes(x=CreatedMonth,fill=ComplaintType))+geom_histogram(stat="count",binwidth = 10)
+community_demo_Complaintytype_df %>% ggplot(aes(x=`Population 18 Years and over`,y= totalRequest,col=BoroughCode)) +geom_point(size=5)
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) ) %>% ggplot(aes(x=CreatedMonth,fill=SRType))+geom_histogram(stat="count",binwidth = 10)
+community_demo_Complaintytype_df %>% ggplot(aes(x=Household,y= totalRequest,col=BoroughCode)) +geom_point(size=5)
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 ) %>% ggplot(aes(x=ResponseTime,col=ComplaintType))+geom_density()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 ) %>% ggplot(aes(x=ResponseTime,col=SRType))+geom_density()
-
- # SR Resolution
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 ) %>% ggplot(aes(x=ResponseTime,col=SRResolution))+geom_density()
-
-R_df<-fsrfistpwodemo_df %>% group_by(SRResolution) %>% summarise(ResolutionCnt=n()) %>% arrange ((ResolutionCnt)) %>% filter(ResolutionCnt>1500 & !is.na(SRResolution)) 
-
-#Join with Parent Dataset
-
-fsrfistpwodemo_df<-full_join(fsrfistpwodemo_df,R_df)
+fsrfistpwodemo_df %>% filter(!is.na(TaxClass)) %>% ggplot(aes(x=BoroughCode.x,fill=factor(TaxClass)))+geom_bar()
 
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt)) %>% ggplot(aes(x=BoroughCode,fill=SRResolution))+geom_bar()
 
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt)) %>% ggplot(aes(x=BoroughCode,y=ResponseTime))+geom_boxplot()+facet_wrap(~ComplaintType)
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt)) %>% ggplot(aes(x=BoroughCode,y=ResponseTime))+geom_boxplot()+facet_wrap(~SRResolution)
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Dead Tree") %>% ggplot(aes(x=BoroughCode,y=ResponseTime))+geom_boxplot()+facet_wrap(~SRResolution)
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Root/Sewer/Sidewalk Condition") %>% ggplot(aes(x=BoroughCode,y=ResponseTime))+geom_boxplot()+facet_wrap(~SRResolution)
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Overgrown Tree/Branches") %>% ggplot(aes(x=BoroughCode,y=ResponseTime))+geom_boxplot()+facet_wrap(~SRResolution)
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>100 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Damaged Tree") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=BoroughCode))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>200 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Dead Tree") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=BoroughCode))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>400 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Root/Sewer/Sidewalk Condition") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=BoroughCode))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>400 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="New Tree Request") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=BoroughCode))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt)) %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>100 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Damaged Tree") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>100 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Dead Tree") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>100 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="Root/Sewer/Sidewalk Condition") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>0 & ResolutionCnt>0 & !is.na(ResolutionCnt) & ComplaintType=="New Tree Request") %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()
-
-fsrfistpwodemo_df %>% filter (!is.na(InspectionStatus) & !is.na(SRType) & !is.na(ComplaintType) & ResponseTime>150 & ResolutionCnt>0 & !is.na(ResolutionCnt)) %>% ggplot(aes(x=Longitude.x,y=Latitude.x,col=SRType))+geom_point()+facet_wrap(~ComplaintType)
-
-ftp_df %>% group_by(GenusSpecies) %>% summarise(cnt=n()) %>% arrange(desc(cnt))
