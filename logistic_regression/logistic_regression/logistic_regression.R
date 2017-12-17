@@ -150,7 +150,9 @@ plot(allEffects(ever.wrk))
 predDat <- with(NH11,expand.grid(r_maritl="1 Married - spouse in household" ,sex = "2 Female",age_p=14:63))
 predDat
 # predict ever.wrk at those levels
-predict(ever.wrk, type = "response",se.fit = TRUE, interval="confidence", newdata = predDat)
+PreDat.mod<-predict(ever.wrk, type = "response",se.fit = TRUE, interval="confidence", newdata = predDat)
 cbind(predDat, predict(ever.wrk, type = "response",se.fit = TRUE, interval="confidence", newdata = predDat))
 
 plot(allEffects(ever.wrk))
+
+

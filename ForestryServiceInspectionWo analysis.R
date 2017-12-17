@@ -2,10 +2,12 @@ library(readr)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+
+
 Forestry_Service_Requests <- read_csv("C:/Users/Naksh/Desktop/R Project/Forestry_Service_Requests.csv")
 Forestry_Tree_Points <- read_csv("C:/Users/Naksh/Desktop/R Project/Forestry_Tree_Points.csv")
 Forestry_Work_Orders <- read_csv("C:/Users/Naksh/Desktop/R Project/Forestry_Work_Orders.csv")
-Forestry_Inspections <- read_csv("C:/Users/Naksh/Downloads/Forestry_Inspections.csv")
+Forestry_Inspections <- read_csv("C:/Users/Naksh/Desktop/R Project/Forestry_Inspections.csv")
 fsr_df<-Forestry_Service_Requests
 fis_df<-Forestry_Inspections
 ftp_df<-Forestry_Tree_Points
@@ -190,6 +192,7 @@ FreqSpecies_df %>% filter(!is.na(GenusSpecies) & SpeciesCnt>1000) %>% group_by(G
 fsrfistpwo_df<-full_join(fsrfistpwo_df,t_df)
 
 
+
 # Explore relationship between TP cnt and location cnt
 
 fsrfistpwo_df %>% ggplot(aes(x=SRlocCnt,y=CntTPT,col=BoroughCode))+geom_point()  # Broklyn has more presence
@@ -288,9 +291,10 @@ ftp_df %>% filter(DBH<50 & GenusSpecies!="Unknown - Unknown" & Tcnt> 22000 ) %>%
 
 fsrfistpwo_df<-fsrfistpwo_df %>% rename(CommunityBoard=CommunityBoard.x)
 
-
 fsrfistpwodemo_df<-full_join(fsrfistpwo_df,community_demo_Complaintytype_df,by=c("CommunityBoard","CommunityBoard"))
 
+
+fsrfistpwodemo_df<-fsrfistpwodemo_df %>% rename(BoroughCode=BoroughCode.x)
 
 
 # Calculate Time for Inspection and time for WO
@@ -691,7 +695,252 @@ community_demo_Complaintytype_df %>% ggplot(aes(x=`Population 18 Years and over`
 
 community_demo_Complaintytype_df %>% ggplot(aes(x=Household,y= totalRequest,col=BoroughCode)) +geom_point(size=5)
 
-fsrfistpwodemo_df %>% filter(!is.na(TaxClass)) %>% ggplot(aes(x=BoroughCode.x,fill=factor(TaxClass)))+geom_bar()
+
+# Modeling
 
 
+fsrfistpwodemo_df$SRCategory = as.factor(fsrfistpwodemo_df$SRCategory)
+fsrfistpwodemo_df$SRType = as.factor(fsrfistpwodemo_df$SRType)
+fsrfistpwodemo_df$WOType = as.factor(fsrfistpwodemo_df$WOType)
+fsrfistpwodemo_df$ComplaintType = as.factor(fsrfistpwodemo_df$ComplaintType)
+
+contrasts(fsrfistpwodemo_df$SRCategory)
+
+coef(summary(lm(SRWocloseTime ~ C(SRCategory, base=1),   data=fsrfistpwodemo_df)))
+summary(lm(SRWocloseTime ~ C(SRCategory, base=1),   data=fsrfistpwodemo_df))
+
+fsrfistpwodemo_df$BoroughCode.x = as.factor(fsrfistpwodemo_df$BoroughCode.x)
+summary(lm(ResponseTime ~ C(BoroughCode.x, base=1),   data=fsrfistpwodemo_df)) #5.6
+
+summary(lm(ResponseTime ~ BoroughCode.x+SRCategory,   data=fsrfistpwodemo_df))  # 20.2   
+
+#Adding DBH reduces R sq to 17.57
+
+
+summary(lm(ResponseTime ~ SRCategory,   data=fsrfistpwodemo_df))  # 15.40
+
+summary(lm(ResponseTime ~ BoroughCode.x,   data=fsrfistpwodemo_df)) # 5.6
+
+summary(lm(SRWocloseTime ~ DBH,   data=fsrfistpwodemo_df)) # .3
+
+summary(lm(ResponseTime ~ InspectionTPStructure,   data=fsrfistpwodemo_df))  # .3
+
+summary(lm(ResponseTime ~ SRType,   data=fsrfistpwodemo_df))  # 17.3  Almost most of them are non significant
+
+summary(lm(ResponseTime ~ WOType,   data=fsrfistpwodemo_df)) # 27.35  Few are one star significant
+
+summary(lm(ResponseTime ~ ComplaintType,   data=fsrfistpwodemo_df))  # 16.7  New Tree request is not significant
+
+summary(lm(ResponseTime ~ CreatedMonth,   data=fsrfistpwodemo_df))  # 2.4
+
+summary(lm(ResponseTime ~ GenusSpecies,   data=fsrfistpwodemo_df)) # 1.5
+
+summary(lm(ResponseTime ~ CommunityBoard,   data=fsrfistpwodemo_df)) .3
+
+summary(lm(SRWocloseTime ~ InspTime,   data=fsrfistpwodemo_df))  #  64.3
+
+summary(lm(ResponseTime ~ InDelayTime,   data=fsrfistpwodemo_df))  # 50.5
+
+summary(lm(ResponseTime ~ Household,   data=fsrfistpwodemo_df)) # no dependency
+
+summary(lm(ResponseTime ~ CntTPT,   data=fsrfistpwodemo_df)) # less depedency
+
+summary(lm(ResponseTime ~ SRlocCnt,   data=fsrfistpwodemo_df)) # no depedency
+
+summary(lm(ResponseTime ~ TaxClass,   data=fsrfistpwodemo_df)) # less depedency
+
+summary(lm(ResponseTime ~ Longitude.x+Latitude.x,   data=fsrfistpwodemo_df)) # less depedency
+
+summary(lm(ResponseTime ~ SRSource,   data=fsrfistpwodemo_df)) # less depedency
+
+summary(lm(ResponseTime ~ SRPriority,   data=fsrfistpwodemo_df)) # less depedency
+
+summary(lm(ResponseTime ~ Cyear,   data=fsrfistpwodemo_df)) # 9.0
+
+summary(lm(ResponseTime ~ UMonth,   data=fsrfistpwodemo_df)) # 13.62
+
+summary(lm(ResponseTime ~ WOCategory,   data=fsrfistpwodemo_df)) # 27.5  Only Tree Planting is significant
+
+summary(lm(ResponseTime ~ WOContract,   data=fsrfistpwodemo_df)) # 34.93
+
+
+mod.resolution<-summary(lm(ResponseTime ~ SRResolution,   data=fsrfistpwodemo_df)) # no depedency
+
+
+
+
+str(fsrfistpwodemo_df)
+fsrfistpwodemo_df$SRCategory <- as.factor(fsrfistpwodemo_df$SRCategory)
+fsrfistpwodemo_df$SRType <- as.factor(fsrfistpwodemo_df$SRType)
+fsrfistpwodemo_df$SRPriority <- as.factor(fsrfistpwodemo_df$SRPriority)
+fsrfistpwodemo_df$SRSource <- as.factor(fsrfistpwodemo_df$SRSource)
+fsrfistpwodemo_df$SRResolution <- as.factor(fsrfistpwodemo_df$SRResolution)
+fsrfistpwodemo_df$BoroughCode<- as.factor(fsrfistpwodemo_df$BoroughCode)
+fsrfistpwodemo_df$ComplaintType<-as.factor(fsrfistpwodemo_df$ComplaintType)
+fsrfistpwodemo_df$InspectionType<-as.factor(fsrfistpwodemo_df$InspectionType)
+fsrfistpwodemo_df$InspectionTPStructure<-as.factor(fsrfistpwodemo_df$InspectionTPStructure)
+fsrfistpwodemo_df$InspectionStatus<-as.factor(fsrfistpwodemo_df$InspectionStatus)
+fsrfistpwodemo_df$InspectionTPCondition<-as.factor(fsrfistpwodemo_df$InspectionTPCondition)
+fsrfistpwodemo_df$WOCategory<-as.factor(fsrfistpwodemo_df$WOCategory)
+fsrfistpwodemo_df$WOStatus<- as.factor(fsrfistpwodemo_df$WOStatus)
+fsrfistpwodemo_df$WOType<-as.factor(fsrfistpwodemo_df$WOType)
+fsrfistpwodemo_df$TPCondition<-as.factor(fsrfistpwodemo_df$TPCondition)
+fsrfistpwodemo_df$TPStructure<-as.factor(fsrfistpwodemo_df$TPStructure)
+
+#install.packages('DEoptimR') 
+#install.packages("caret", dependencies = TRUE)
+
+#install.packages("caret",repos = "http://cran.r-project.org", dependencies = c("Depends", "Imports", "Suggests"))
+
+#install.packages("RcppRoll")
+
+#install.packages("ddalpha")
+
+#install.packages("dimRed")
+
+#install.packages("gower")
+
+library("caret")
+
+
+
+fsrforMOD_df<-fsrfistpwodemo_df %>% select(ComplaintNumber.x,SRCategory,SRType,SRPriority,SRSource,SRResolution,BoroughCode,ResponseTime,Latitude.x,Longitude.x,Cyear,CMonth,Uyear,UMonth,CreatedMonth,InspectionType,InspectionTPStructure,InspectionTPCondition,TreePointDBH,TPStructure,WOStatus,WOCategory,InDelayTime,SRWocloseTime)
+str(fsrforMOD_df)
+
+dmy<-dummyVars("~SRCategory",data = fsrforMOD_df)
+trsf_SRCat<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_SRCat)
+str(fsrforMOD_df)
+
+dmy<-dummyVars("~BoroughCode",data = fsrforMOD_df)
+trsf_BoroughCode<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_BoroughCode)
+
+dmy<-dummyVars("~SRType",data = fsrforMOD_df)
+trsf_SRType<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_SRType)
+
+dmy<-dummyVars("~SRResolution",data = fsrforMOD_df)
+trsf_SRResolution<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_SRResolution)
+
+dmy<-dummyVars("~SRPriority",data = fsrforMOD_df)
+trsf_SRPriority<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_SRPriority)
+
+dmy<-dummyVars("~SRSource",data = fsrforMOD_df)
+trsf_SRSource<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_SRSource)
+
+dmy<-dummyVars("~CreatedMonth",data = fsrforMOD_df)
+trsf_CreatedMonth<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_CreatedMonth)
+
+fsrforMOD_df$Cyear<-as.numeric(fsrforMOD_df$Cyear)
+
+
+fsrforMOD_df$InspectionTPStructure<-as.factor(fsrforMOD_df$InspectionTPStructure)
+
+dmy<-dummyVars("~InspectionTPStructure",data = fsrforMOD_df)
+trsf_InspectionTPStructure<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_InspectionTPStructure)
+
+dmy<-dummyVars("~TPStructure",data = fsrforMOD_df)
+trsf_TPStructure<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_TPStructure)
+
+dmy<-dummyVars("~WOStatus",data = fsrforMOD_df)
+trsf_WOStatus<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_WOStatus)
+
+
+dmy<-dummyVars("~WOCategory",data = fsrforMOD_df)
+trsf_WOCategory<-data.frame(predict(dmy,newdata = fsrforMOD_df))
+fsrforMOD_df<-cbind.data.frame(fsrforMOD_df,trsf_WOCategory)
+
+fsrforMOD_df.new<-fsrforMOD_df[-2]
+
+fsrforMOD_df.new<-fsrforMOD_df.new[-c(2:5)]
+str(fsrforMOD_df.new)
+
+fsrforMOD_df.new<-fsrforMOD_df.new[-c(6:8),-c(13,15)]
+str(fsrforMOD_df.new)
+
+
+fsrforMOD_df.new<-fsrforMOD_df.new[-13]
+str(fsrforMOD_df.new)
+
+# fsrforMOD.new is data frame with dummy variables.
+
+# linear regression model
+
+# split Data set
+
+#install.packages("caTools")
+library(caTools)
+
+set.seed(88)
+split=sample.split(fsrforMOD_df.new$ResponseTime,SplitRatio = 0.75)
+split
+fsrforMOD_df.new.train=subset(fsrforMOD_df.new,split==TRUE)
+str(fsrforMOD_df.new.train)
+
+fsrforMOD_df.new.test=subset(fsrforMOD_df.new,split==FALSE)
+
+
+#install.packages("h20.ai")
+
+#if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
+#if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
+#pkgs <- c("RCurl","jsonlite")
+#for (pkg in pkgs) {
+ # if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
+#}
+
+#install.packages("h2o", type="source", repos="http://h2o-release.s3.amazonaws.com/h2o/rel-wheeler/2/R")
+
+library(h2o)
+h2o.init()
+
+
+# LM using H2o
+
+train.fsrforMOD_df.new.train <- as.h2o(fsrforMOD_df.new.train)
+test.fsrforMOD_df.new.test <- as.h2o(fsrforMOD_df.new.test)
+colnames(train.fsrforMOD_df.new.train)
+y.dep <- 3
+x.indep<- c(1:2,4:173)
+regression.model1 <- h2o.glm( y = y.dep, x = x.indep, training_frame = train.fsrforMOD_df.new.train,family = "gaussian")
+h2o.performance(regression.model1)  # R sq = 0.4646 AIC = 1349978
+
+
+predict.reg1 <- as.data.frame(h2o.predict(regression.model1, test.fsrforMOD_df.new.test))
+summary(predict.reg1)
+summary(test.fsrforMOD_df.new.test$ResponseTime)  # mean is almost equal
+
+# Random Forest using H2o
+
+rforest.model1 <- h2o.randomForest(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 500, mtries = 3, max_depth = 4, seed = 1122)
+h2o.performance(rforest.model1) 
+summary(rforest.model1)
+predict.rforest1 <- as.data.frame(h2o.predict(rforest.model1, test.fsrforMOD_df.new.test))
+summary(predict.rforest1)
+summary(test.fsrforMOD_df.new.test$ResponseTime) 
+
+
+# Using GBM method
+
+gbm.model1 <- h2o.gbm(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 1000, max_depth = 4, learn_rate = 0.01, seed = 1122)
+h2o.performance(gbm.model1) 
+summary(gbm.model1)
+predict.gbm1 <- as.data.frame(h2o.predict(gbm.model1, test.fsrforMOD_df.new.test))
+summary(predict.gbm1)
+
+
+
+summary(test.fsrforMOD_df.new.test$ResponseTime) 
+summary(predict.gbm1)
+summary(predict.rforest1)
+summary(predict.reg1)
 
