@@ -910,14 +910,27 @@ train.fsrforMOD_df.new.train <- as.h2o(fsrforMOD_df.new.train)
 test.fsrforMOD_df.new.test <- as.h2o(fsrforMOD_df.new.test)
 colnames(train.fsrforMOD_df.new.train)
 y.dep <- 3
-x.indep<- c(1:2,4:173)
+x.indep<- c(1:2,4:5,7:173)
 regression.model1 <- h2o.glm( y = y.dep, x = x.indep, training_frame = train.fsrforMOD_df.new.train,family = "gaussian")
 h2o.performance(regression.model1)  # R sq = 0.4646 AIC = 1349978
 
 
 predict.reg1 <- as.data.frame(h2o.predict(regression.model1, test.fsrforMOD_df.new.test))
+
 summary(predict.reg1)
+str(predict.reg1)
+
 summary(test.fsrforMOD_df.new.test$ResponseTime)  # mean is almost equal
+
+r2.glm<-h2o.r2(regression.model1)
+rmse.glm<-h2o.rmse(regression.model1)
+mae.glm<-h2o.mae(regression.model1)
+
+r2.glm
+
+
+
+
 
 # Random Forest using H2o
 
@@ -928,19 +941,44 @@ predict.rforest1 <- as.data.frame(h2o.predict(rforest.model1, test.fsrforMOD_df.
 summary(predict.rforest1)
 summary(test.fsrforMOD_df.new.test$ResponseTime) 
 
+r2.rforest<-h2o.r2(rforest.model1)
+rmse.rforest<-h2o.rmse(rforest.model1)
+mae.rforest<-h2o.mae(rforest.model1)
+
+r2.rforest
+
 
 # Using GBM method
 
-gbm.model1 <- h2o.gbm(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 1000, max_depth = 4, learn_rate = 0.01, seed = 1122)
+gbm.model1 <- h2o.gbm(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 2000, max_depth = 4, learn_rate = 0.01, seed = 1122)
 h2o.performance(gbm.model1) 
 summary(gbm.model1)
 predict.gbm1 <- as.data.frame(h2o.predict(gbm.model1, test.fsrforMOD_df.new.test))
 summary(predict.gbm1)
+h2o.r2(gbm.model1)
 
-
+#par(mar = c(4, 4, 2, 2), mfrow = c(1, 2)) #optional
+plot(gbm.model1) # 
 
 summary(test.fsrforMOD_df.new.test$ResponseTime) 
 summary(predict.gbm1)
 summary(predict.rforest1)
 summary(predict.reg1)
+
+r2.gbm<-h2o.r2(gbm.model1)
+rmse.gbm<-h2o.rmse(gbm.model1)
+mae.gbm<-h2o.mae(gbm.model1)
+
+
+# Putting all model together
+
+accuracy <- data.frame(Method = c("GLM","Random forest","GBM"), RMSE   = c(rmse.glm,rmse.rforest,rmse.gbm), MAE= c(mae.glm,mae.rforest,mae.gbm), R2=c(r2.glm,r2.rforest,r2.gbm))
+
+accuracy
+
+# Putting all prediceted values
+
+predictions <- data.frame(actual = fsrforMOD_df.new.test$ResponseTime,linear.regression = predict.reg1,random.forest =predict.rforest1,gbm=predict.gbm1)
+head(predictions)
+
 
