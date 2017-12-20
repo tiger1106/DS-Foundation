@@ -934,12 +934,18 @@ r2.glm
 
 # Random Forest using H2o
 
-rforest.model1 <- h2o.randomForest(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 500, mtries = 3, max_depth = 4, seed = 1122)
+rforest.model1 <- h2o.randomForest(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new.train, ntrees = 1500, mtries = 3, max_depth = 4, seed = 1122)
 h2o.performance(rforest.model1) 
 summary(rforest.model1)
+var.imp.rforest.model1<-as.data.frame(h2o.varimp(rforest.model1))
+var.imp.rforest.model1
+
+
+
 predict.rforest1 <- as.data.frame(h2o.predict(rforest.model1, test.fsrforMOD_df.new.test))
 summary(predict.rforest1)
 summary(test.fsrforMOD_df.new.test$ResponseTime) 
+
 
 r2.rforest<-h2o.r2(rforest.model1)
 rmse.rforest<-h2o.rmse(rforest.model1)
@@ -956,6 +962,11 @@ summary(gbm.model1)
 predict.gbm1 <- as.data.frame(h2o.predict(gbm.model1, test.fsrforMOD_df.new.test))
 summary(predict.gbm1)
 h2o.r2(gbm.model1)
+var.imp.gbm.model1<-as.data.frame(h2o.varimp(gbm.model1))
+var.imp.gbm.model1
+
+
+
 
 #par(mar = c(4, 4, 2, 2), mfrow = c(1, 2)) #optional
 plot(gbm.model1) # 
@@ -968,6 +979,7 @@ summary(predict.reg1)
 r2.gbm<-h2o.r2(gbm.model1)
 rmse.gbm<-h2o.rmse(gbm.model1)
 mae.gbm<-h2o.mae(gbm.model1)
+
 
 
 # Putting all model together
