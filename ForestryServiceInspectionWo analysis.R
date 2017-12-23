@@ -417,6 +417,7 @@ fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOTy
 
 # Relationship between WOType and SR Type
 
+
 fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Overgrown Tree/Branches" & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=SRType,fill=WOType))+geom_bar()
 
 fsrfistpwodemo_df %>% filter(!is.na(ComplaintType) & WoCloseTime>0 & !is.na(WOType) & ComplaintType=="Root/Sewer/Sidewalk Condition" & WoCloseTime>0 & !is.na(WOType)) %>%ggplot(aes(x=SRType,fill=WOType))+geom_bar() + facet_wrap(~BoroughCode)
@@ -932,6 +933,19 @@ r2.glm<-h2o.r2(regression.model1)
 rmse.glm<-h2o.rmse(regression.model1)
 mae.glm<-h2o.mae(regression.model1)
 
+# Cross validation on test set random forest
+
+h2o.r2(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+h2o.rmse(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+h2o.mae(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+
+test.r2.glm1<-h2o.r2(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.rmse.glm1<-h2o.rmse(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.mae.glm1<-h2o.mae(h2o.performance(regression.model1, newdata = test.fsrforMOD_df.new1.test)) 
+
+summary.glm1<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.glm,test.rmse.glm1), MAE= c(mae.glm,test.mae.glm1), R2=c(r2.glm,test.r2.glm1))
+summary.glm1
+
 
 # Random Forest using H2o
 
@@ -952,6 +966,18 @@ rmse.rforest<-h2o.rmse(rforest.model1)
 mae.rforest<-h2o.mae(rforest.model1)
 
 
+# Cross validation on test set random forest
+
+test.r2.rforest1<-h2o.r2(h2o.performance(rforest.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.rmse.rforest1<-h2o.rmse(h2o.performance(rforest.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.mae.rforest1<-h2o.mae(h2o.performance(rforest.model1, newdata = test.fsrforMOD_df.new1.test)) 
+
+# summary
+
+summary.rforest1<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.rforest,test.rmse.rforest1), MAE= c(mae.rforest,test.mae.rforest1), R2=c(r2.rforest,test.r2.rforest1))
+summary.rforest1
+
+
 # Using GBM method
 
 gbm.model1 <- h2o.gbm(y=y.dep1, x=x.indep1, training_frame = train.fsrforMOD_df.new1.train, ntrees = 2000, max_depth = 4, learn_rate = 0.01, seed = 1122)
@@ -960,33 +986,37 @@ summary(gbm.model1)
 predict.gbm1 <- h2o.predict(gbm.model1, test.fsrforMOD_df.new1.test)
 summary(predict.gbm1)
 
-
-
-
 h2o.r2(gbm.model1)
 var.imp.gbm.model1<-as.data.frame(h2o.varimp(gbm.model1))
 head(var.imp.gbm.model1)
 var.imp.gbm.model1
-
-h2o.r2(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
-h2o.rmse(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
-h2o.mae(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
-
+r2.gbm<-h2o.r2(gbm.model1)
+rmse.gbm<-h2o.rmse(gbm.model1)
+mae.gbm<-h2o.mae(gbm.model1)
 
 
 
+# Cross validation on test set GBM
 
+
+test.r2.gbm1<-h2o.r2(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.rmse.gbm1<-h2o.rmse(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
+test.mae.gbm1<-h2o.mae(h2o.performance(gbm.model1, newdata = test.fsrforMOD_df.new1.test)) 
 
 # summary
+
+summary.gbm1<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.gbm,test.rmse.gbm1), MAE= c(mae.gbm,test.mae.gbm1), R2=c(r2.gbm,test.r2.gbm1))
+summary.gbm1
+
+
+
+
 
 summary(test.fsrforMOD_df.new1.test$ResponseTime) 
 summary(predict.gbm1)
 summary(predict.rforest1)
 summary(predict.reg1)
 
-r2.gbm<-h2o.r2(gbm.model1)
-rmse.gbm<-h2o.rmse(gbm.model1)
-mae.gbm<-h2o.mae(gbm.model1)
 
 
 
@@ -1004,6 +1034,7 @@ predictions
 summary(predictions)
 str(predictions)
 
+#####################################################################################################################################################################
 
 # Model2
 
@@ -1033,7 +1064,7 @@ x.indep<- c(3:173)
 
 regression.model2 <- h2o.glm( y = y.dep, x = x.indep, training_frame = train.fsrforMOD_df.new2.train,family = "gaussian")
 regression.model2
-h2o.performance(regression.model2)  # R sq = 0.44
+h2o.performance(regression.model2)
 h2o.coef(regression.model2)
 predict.reg2 <- as.data.frame(h2o.predict(regression.model2, test.fsrforMOD_df.new2.test))
 
@@ -1041,9 +1072,20 @@ r2.glm2<-h2o.r2(regression.model2)
 rmse.glm2<-h2o.rmse(regression.model2)
 mae.glm2<-h2o.mae(regression.model2)
 
+# Cross validation on test set random forest
+
+test.r2.glm2<-h2o.r2(h2o.performance(regression.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.rmse.glm2<-h2o.rmse(h2o.performance(regression.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.mae.glm2<-h2o.mae(h2o.performance(regression.model2, newdata = test.fsrforMOD_df.new2.test)) 
+
+summary.glm<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.glm2,test.rmse.glm2), MAE= c(mae.glm2,test.mae.glm2), R2=c(r2.glm2,test.r2.glm2))
+summary.glm
+
+
+
 # r.forest
 
-rforest.model2 <- h2o.randomForest(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new2.train, ntrees = 1500, mtries = 3, max_depth = 4, seed = 1122)
+rforest.model2 <- h2o.randomForest(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new2.train, ntrees = 200, mtries = 3, max_depth = 4, seed = 1122)
 h2o.performance(rforest.model2) 
 rforest.model2
 summary(rforest.model2)
@@ -1059,6 +1101,17 @@ r2.rforest2<-h2o.r2(rforest.model2)
 rmse.rforest2<-h2o.rmse(rforest.model2)
 mae.rforest2<-h2o.mae(rforest.model2)
 
+# Cross validation on test set random forest
+
+test.r2.rforest2<-h2o.r2(h2o.performance(rforest.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.rmse.rforest2<-h2o.rmse(h2o.performance(rforest.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.mae.rforest2<-h2o.mae(h2o.performance(rforest.model2, newdata = test.fsrforMOD_df.new2.test)) 
+
+summary.rforest2<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.rforest2,test.rmse.rforest2), MAE= c(mae.rforest2,test.mae.rforest2), R2=c(r2.rforest2,test.r2.rforest2))
+summary.rforest2
+
+
+
 # GBM
 gbm.model2 <- h2o.gbm(y=y.dep, x=x.indep, training_frame = train.fsrforMOD_df.new2.train, ntrees = 2000, max_depth = 4, learn_rate = 0.01, seed = 1122)
 h2o.performance(gbm.model2) 
@@ -1070,33 +1123,38 @@ var.imp.gbm.model2<-as.data.frame(h2o.varimp(gbm.model2))
 head(var.imp.gbm.model2)
 var.imp.gbm.model2
 
-# Validation on test data
+r2.gbm2<-h2o.r2(gbm.model2)
+rmse.gbm2<-h2o.rmse(gbm.model2)
+mae.gbm2<-h2o.mae(gbm.model2)
 
-h2o.r2(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
-h2o.rmse(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
-h2o.mae(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
+#  Cross Validation on test data
 
-
-
-
-
-r2.gbm2<-h2o.r2(gbm.model1)
-rmse.gbm2<-h2o.rmse(gbm.model1)
-mae.gbm2<-h2o.mae(gbm.model1)
-
+test.r2.gbm2<-h2o.r2(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.rmse.gbm2<-h2o.rmse(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
+test.mae.gbm2<-h2o.mae(h2o.performance(gbm.model2, newdata = test.fsrforMOD_df.new2.test)) 
 
 #summary
 
+summary.gbm2<- data.frame(dataset=c("Training","Test"),RMSE   = c(rmse.gbm2,test.rmse.gbm2), MAE= c(mae.gbm2,test.mae.gbm2), R2=c(r2.gbm2,test.r2.gbm2))
+summary.gbm2
+
+
+
+
 # Putting all model1 together
 
-accuracy2 <- data.frame(Method = c("GLM","Random forest","GBM"), RMSE   = c(rmse.glm2,rmse.rforest2,rmse.gbm2), MAE= c(mae.glm2,mae.rforest2,mae.gbm2), R2=c(r2.glm2,r2.rforest2,r2.gbm2))
+accuracy2.training <- data.frame(Method = c("GLM","Random forest","GBM"), RMSE   = c(rmse.glm2,rmse.rforest2,rmse.gbm2), MAE= c(mae.glm2,mae.rforest2,mae.gbm2), R2=c(r2.glm2,r2.rforest2,r2.gbm2))
 
-accuracy2
+accuracy2.test<- data.frame(Method = c("GLM","Random forest","GBM"), RMSE   = c(test.rmse.glm2,test.rmse.rforest2,test.rmse.gbm2), MAE= c(test.mae.glm2,test.mae.rforest2,test.mae.gbm2), R2=c(test.r2.glm2,test.r2.rforest2,test.r2.gbm2))
+
+accuracy2.test
+
+accuracy2.training
 
 # Putting all predicted values
 
-predictions2 <- data.frame(actual = fsrforMOD_df.new1.test$ResponseTime,linear.regression = predict.reg2,random.forest =predict.rforest2,gbm=predict.gbm2)
-head(predictions2)
+predictions2 <- data.frame(actual = fsrforMOD_df.new1.test$ResponseTime,linear.regression = predict.reg2,random.forest =predict.rforest2,gbm =predict.gbm2)
+summary(predictions2)
 
 
 
